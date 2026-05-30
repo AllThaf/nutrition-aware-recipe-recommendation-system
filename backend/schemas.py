@@ -29,7 +29,7 @@ class Recipe(RecipeBase):
     """Recipe response schema"""
     id: int
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -62,7 +62,7 @@ class UserPreference(UserPreferenceBase):
     id: int
     user_id: str
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -93,7 +93,7 @@ class Recommendation(RecommendationBase):
     is_rated: bool
     user_rating: Optional[float] = None
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None 
 
     class Config:
         from_attributes = True
@@ -117,7 +117,7 @@ class ModelEvaluation(ModelEvaluationBase):
     """Model evaluation response schema"""
     id: int
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

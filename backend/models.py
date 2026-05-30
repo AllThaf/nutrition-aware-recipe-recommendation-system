@@ -1,7 +1,7 @@
 """SQLAlchemy database models"""
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, JSON
 from sqlalchemy.sql import func
-from database import Base
+from .database import Base
 
 
 class Recipe(Base):

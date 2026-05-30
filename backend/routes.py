@@ -1,9 +1,9 @@
 """FastAPI recommendation system routes"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from database import get_db
-import models
-import schemas
+from .database import get_db
+from . import models
+from . import schemas
 from typing import List
 
 router = APIRouter(prefix="/api", tags=["recommendations"])

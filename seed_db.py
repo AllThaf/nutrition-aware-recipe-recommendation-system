@@ -160,6 +160,10 @@ def seed_evaluation():
 
 
 if __name__ == "__main__":
+    print("Initializing database...")
+    from backend.database import init_db
+    init_db()  # creates all tables first
+    
     print("Seeding database...")
     seed_recipes()
     seed_evaluation()

@@ -6,9 +6,9 @@ from fastapi.responses import FileResponse
 import os
 from pathlib import Path
 
-from config import CORS_ORIGINS, API_TITLE, API_DESCRIPTION, API_VERSION, DEBUG
-from database import init_db
-from routes import router
+from .config import CORS_ORIGINS, API_TITLE, API_DESCRIPTION, API_VERSION, DEBUG, HOST, PORT
+from .database import init_db
+from .routes import router
 
 # Initialize database tables
 init_db()
@@ -71,10 +71,10 @@ def api_info():
 
 if __name__ == "__main__":
     import uvicorn
-    from config import HOST, PORT
+    from .config import HOST, PORT
     
     uvicorn.run(
-        "main:app",
+        "backend.main:app",
         host=HOST,
         port=PORT,
         reload=DEBUG
