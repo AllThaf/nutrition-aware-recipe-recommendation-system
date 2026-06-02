@@ -6,7 +6,11 @@ from . import models
 from . import schemas
 from typing import List
 
+from .config import MODEL_FILENAME, MODEL_PATH, PICKLE_PATH
+from .pipeline import CFRecipeRecommendationPipeline
+
 router = APIRouter(prefix="/api", tags=["recommendations"])
+
 
 
 # ==================== Recipe Endpoints ====================
@@ -104,23 +108,79 @@ def get_recommendations(
     if not all_recipes:
         raise HTTPException(status_code=404, detail="No recipes available")
     
-    # TODO: Integrate with ML model for scoring
-    # For now, return simple recommendations based on calories
+    pipeline = CFRecipeRecommendationPipeline(
+        model_path=MODEL_PATH,
+        model_filename=MODEL_FILENAME,
+        pickle_path=PICKLE_PATH,
+    )
+
+    # The pipeline expects user_id to be present in the dict-like preferences.
+    # SQLAlchemy model -> dict conversion.
+    user_pref_dict = {
+        **{k: getattr(user_prefs, k) for k in [
+            "user_id",
+            "min_calories",
+            "max_calories",
+            "min_protein",
+            "max_protein",
+            "min_carbs",
+            "max_carbs",
+            "min_fat",
+            "max_fat",
+            "vegetarian",
+            "vegan",
+            "gluten_free",
+            "lactose_free",
+        ]},
+    }
+
+    # Convert ORM recipes to dicts for the pipeline.
+    recipe_dicts = []
+    for r in all_recipes:
+        recipe_dicts.append(
+            {
+                "id": r.id,
+                "name": r.name,
+                "calories": r.calories,
+                "protein": r.protein,
+                "carbs": r.carbs,
+                "fat": r.fat,
+                "fiber": r.fiber,
+                "sodium": r.sodium,
+                "ingredients": r.ingredients,
+                "cooking_time": r.cooking_time,
+            }
+        )
+
+    top = pipeline.get_top_recommendations(
+        user_preferences=user_pref_dict,
+        recipes=recipe_dicts,
+        n_recommendations=request.num_recommendations,
+    )
+
+    # Persist recommendations so the rating endpoint works.
     recommendations = []
-    for recipe in all_recipes[:request.num_recommendations]:
+    for item in top:
+        recipe = item["recipe"]
         rec = models.Recommendation(
             user_id=request.user_id,
-            recipe_id=recipe.id,
-            recipe_name=recipe.name,
-            score=0.85,  # Placeholder score
-            reasoning=f"Matches your dietary preferences"
+            recipe_id=int(recipe["id"]),
+            recipe_name=str(recipe["name"]),
+            score=float(item["score"]),
+            reasoning=item.get("reasoning"),
         )
+        db.add(rec)
         recommendations.append(rec)
-    
+
+    db.commit()
+    for rec in recommendations:
+        db.refresh(rec)
+
     return schemas.RecommendationResponse(
         recommendations=[schemas.Recommendation.from_orm(r) for r in recommendations],
-        total_count=len(recommendations)
+        total_count=len(recommendations),
     )
+
 
 
 @router.post("/recommendations/{recommendation_id}/rate")
