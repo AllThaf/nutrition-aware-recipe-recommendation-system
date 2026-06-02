@@ -1,4 +1,14 @@
-"""Main FastAPI application"""
+"""Main FastAPI application.
+
+Responsibilities:
+- Create/configure the FastAPI app
+- Initialize DB tables via `backend.database.init_db()`
+- Mount the static frontend
+- Expose root routes for the dashboard pages
+
+Note: recommendation/ML logic lives in `backend/pipeline.py` and is invoked by API routes.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles

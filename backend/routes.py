@@ -16,6 +16,12 @@ from .pipeline import CFRecipeRecommendationPipeline
 
 router = APIRouter(prefix="/api", tags=["recommendations"])
 
+# API Note:
+# - This router implements both resource CRUD (recipes) and recommendation flows.
+# - “Auth” endpoints (/register, /login) are simple demo endpoints.
+# - The current-user context for /api/me* is derived from the `X-Username` header.
+
+
 
 
 # ==================== Recipe Endpoints ====================

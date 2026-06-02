@@ -18,7 +18,12 @@ API_VERSION = "1.0.0"
 
 # Model Configuration
 # Default to the latest CF model artifact shipped with the repo.
+#
+# IMPORTANT: `MODEL_PATH` semantics are handled in `backend/pipeline.py`.
+# - If `MODEL_PATH` is absolute (starts as an absolute path), it is treated as a path.
+# - Otherwise it is treated as a relative directory under `PICKLE_PATH`.
 MODEL_FILENAME = os.getenv("MODEL_FILENAME", "best_cf_model_ncf.pkl")
+
 # Path (relative or absolute) to the directory containing the pickle.
 # Defaults to the repo's CF output model directory.
 # NOTE: some environments may set MODEL_PATH to an unrelated relative directory.

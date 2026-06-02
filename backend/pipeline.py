@@ -61,7 +61,16 @@ class ScoredRecipe:
 
 
 class CFRecipeRecommendationPipeline:
-    """CF-based recommendation pipeline using the pickled CF wrapper model."""
+    """CF-based recommendation pipeline using the pickled CF wrapper model.
+
+This class is responsible for:
+- Resolving and loading the CF model pickle
+- Mapping user/recipe identifiers via any ID maps exposed by the unpickled wrapper
+- Scoring candidates and producing top-N recommendations
+
+Per project scope, this file is documentation-only in this cleanup (no behavior changes).
+"""
+
 
     def __init__(
         self,
