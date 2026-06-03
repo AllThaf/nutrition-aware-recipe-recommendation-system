@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nutrition-Aware Recipe Recommender — Demo Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand__title">Nutrition-Aware Recipe Recommendation System</div>
+          <div class="brand__subtitle">Hybrid CF + CBF + Nutrition — capstone demo UI</div>
+        </div>
+
+        <div class="topbar__tabs" role="tablist" aria-label="Dashboard sections">
+          <button class="tab active" id="tab-demo" role="tab" aria-selected="true" aria-controls="panel-demo">
+            Demo
+          </button>
+          <button class="tab" id="tab-eval" role="tab" aria-selected="false" aria-controls="panel-eval">
+            Evaluation
+          </button>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="Dataset stats">
+        <div class="stats__item">
+          <div class="stats__label">Total recipes</div>
+          <div class="stats__value" id="stat-total-recipes">—</div>
+        </div>
+        <div class="stats__item">
+          <div class="stats__label">Total users</div>
+          <div class="stats__value" id="stat-total-users">—</div>
+        </div>
+        <div class="stats__item">
+          <div class="stats__label">Total interactions</div>
+          <div class="stats__value" id="stat-total-interactions">—</div>
+        </div>
+        <div class="stats__item">
+          <div class="stats__label">Data sparsity</div>
+          <div class="stats__value" id="stat-sparsity">—</div>
+        </div>
+      </section>
+
+      <main class="content">
+        <!-- Demo panel -->
+        <section class="panel" id="panel-demo" role="tabpanel" aria-labelledby="tab-demo">
+          <div class="layout">
+            <aside class="sidebar">
+              <h2 class="section-title">Input panel</h2>
+
+              <form id="form-recommend" class="form" autocomplete="off">
+                <label class="field">
+                  <span class="field__label">User ID</span>
+                  <input
+                    id="user_id"
+                    name="user_id"
+                    type="text"
+                    placeholder="e.g., 123456"
+                    inputmode="numeric"
+                    required
+                  />
+                  <span class="field__help">Raw integer from dataset (no auth).</span>
+                </label>
+
+                <label class="field">
+                  <span class="field__label">
+                    Top-N: <span id="topn_value">10</span>
+                  </span>
+                  <input id="top_n" name="top_n" type="range" min="5" max="20" value="10" />
+                  <div class="range-hints">
+                    <span>5</span><span>20</span>
+                  </div>
+                </label>
+
+                <div class="grid2">
+                  <label class="field">
+                    <span class="field__label">Min nutrition score (0–100)</span>
+                    <input
+                      id="min_nutrition_score"
+                      name="min_nutrition_score"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      placeholder="optional"
+                    />
+                  </label>
+
+                  <label class="field">
+                    <span class="field__label">Max calories</span>
+                    <input
+                      id="max_calories"
+                      name="max_calories"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="optional"
+                    />
+                  </label>
+                </div>
+
+                <label class="field">
+                  <span class="field__label">Reference recipe ID (optional)</span>
+                  <input
+                    id="ref_recipe_id"
+                    name="ref_recipe_id"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="optional — pivots CBF"
+                  />
+                </label>
+
+                <div class="form__actions">
+                  <button class="btn primary" type="submit">Submit</button>
+                  <button class="btn" type="button" id="btn-load-mock">
+                    Load demo results
+                  </button>
+                </div>
+
+                <div class="status" id="status" aria-live="polite"></div>
+              </form>
+
+              <div class="legend">
+                <div class="legend__title">Score badge ranges</div>
+                <div class="legend__row">
+                  <span class="dot dot--good"></span> High
+                  <span class="dot dot--mid" style="margin-left:10px"></span> Mid
+                  <span class="dot dot--bad" style="margin-left:10px"></span> Low
+                </div>
+                <div class="legend__note">Thresholds are auto-derived from each score’s typical range.</div>
+              </div>
+            </aside>
+
+            <section class="main">
+              <div class="main__header">
+                <h2 class="section-title">Recommendation results</h2>
+                <div class="small-muted" id="result-meta">Submit to fetch recommendations.</div>
+              </div>
+
+              <div class="loading" id="loading" hidden>
+                <div class="spinner" aria-hidden="true"></div>
+                <div>Loading recommendations…</div>
+              </div>
+
+              <div class="error" id="error" hidden></div>
+
+              <div class="cards" id="cards" aria-live="polite"></div>
+
+              <div class="empty" id="empty" hidden>
+                No results yet. Submit inputs to generate recommendations.
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- Evaluation panel -->
+        <section class="panel" id="panel-eval" role="tabpanel" aria-labelledby="tab-eval" hidden>
+          <div class="eval">
+            <h2 class="section-title">Evaluation dashboard</h2>
+
+            <div class="eval__grid">
+              <div class="card-block">
+                <div class="card-block__title">Model comparison</div>
+                <div class="table-wrap">
+                  <table class="table" aria-label="Model comparison table">
+                    <thead>
+                      <tr>
+                        <th>Model</th>
+                        <th>HR@5</th>
+                        <th>HR@10</th>
+                        <th>HR@20</th>
+                        <th>MRR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>ALS</td>
+                        <td class="na">—</td>
+                        <td>0.4654</td>
+                        <td class="na">—</td>
+                        <td>0.2951</td>
+                      </tr>
+                      <tr>
+                        <td>BPR</td>
+                        <td class="na">—</td>
+                        <td>0.3643</td>
+                        <td class="na">—</td>
+                        <td>0.1905</td>
+                      </tr>
+                      <tr>
+                        <td>SVD</td>
+                        <td class="na">—</td>
+                        <td>0.5140</td>
+                        <td class="na">—</td>
+                        <td>0.2996</td>
+                      </tr>
+                      <tr class="best">
+                        <td>NCF</td>
+                        <td class="na">—</td>
+                        <td>0.5201</td>
+                        <td class="na">—</td>
+                        <td>0.3095</td>
+                      </tr>
+                      <tr>
+                        <td>CBF_TFIDF</td>
+                        <td>0.1431</td>
+                        <td>0.2312</td>
+                        <td>0.3742</td>
+                        <td>0.1137</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="table-foot small-muted">
+                  NCF is selected as the best-performing CF baseline (visually emphasized below).
+                </div>
+              </div>
+
+              <div class="card-block">
+                <div class="card-block__title">HR@10 across models</div>
+                <div class="chart-wrap">
+                  <canvas id="hr10Chart" height="260"></canvas>
+                </div>
+                <div class="table-foot small-muted">NCF bar is highlighted to match selection.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div class="small-muted">
+          API: <span class="code">POST /recommend</span> and <span class="code">GET /stats</span>.
+          If backend is unavailable, the dashboard uses mock responses.
+        </div>
+      </footer>
+    </div>
+
+    <!-- charting (tiny inline renderer fallback if Chart.js is not used) -->
+    <script>
+      // Minimal Chart.js substitute: if Chart is not present, render a simple SVG chart.
+      // We try to load Chart.js from CDN; if blocked, we’ll render fallback.
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
+
