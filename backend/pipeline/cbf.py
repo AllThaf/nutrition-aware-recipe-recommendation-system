@@ -91,9 +91,10 @@ def score_cbf(cbf: CBFArtifacts, candidate_recipe_ids: list[int], past_recipe_id
     if not cand_rows:
         return [{"recipe_id": rid, "similarity_score": 0.0} for rid in candidate_recipe_ids]
 
-    cand_mat = cand_rows[0]
-    for r in cand_rows[1:]:
-        cand_mat = np.vstack([cand_mat.toarray(), r.toarray()]) if hasattr(cand_mat, "toarray") else np.vstack([cand_mat, r])
+    cand_mat = np.vstack([
+        r.toarray() if hasattr(r, "toarray") else np.asarray(r).reshape(1, -1)
+        for r in cand_rows
+    ])
 
     cand_mat_dense = cand_mat.toarray() if hasattr(cand_mat, "toarray") else np.asarray(cand_mat)
     sims = cosine_similarity(user_vec, cand_mat_dense).flatten()
