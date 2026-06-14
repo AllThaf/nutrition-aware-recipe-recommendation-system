@@ -23,7 +23,6 @@ Option B — open directly:
 
 ```text
 Open frontend-dashboard/index.html in browser
-API calls will use mock data if backend is unreachable
 ```
 
 ## 4. How to Start the Backend First
@@ -52,9 +51,6 @@ ORDER BY interactions DESC
 LIMIT 10;
 ```
 
-## 7. Mock Fallback
-
-If the backend is unreachable, the UI automatically shows mock data so the demo still works without a running server.
 
 ## 8. API Endpoints Used
 
