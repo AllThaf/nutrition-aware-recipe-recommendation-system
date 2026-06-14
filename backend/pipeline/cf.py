@@ -22,7 +22,7 @@ def _load_pickle(path: Path):
         return pickle.load(f)
 
 
-def load_cf(model_dir: Path) -> CFArtifacts:
+def load_cf(model_path: Path) -> CFArtifacts:
     """CF loader.
 
     This capstone repo does not ship user/item mapping pickles needed for NCF inference.
@@ -33,15 +33,8 @@ def load_cf(model_dir: Path) -> CFArtifacts:
     # Optional: try to load a model artifact if it exists.
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # In this repo the trained artifact is stored as a pickle under cf/outputs/models
-    model_candidate_paths = [
-        model_dir / "cf" / "ncf_model.pt",
-        model_dir / "cf" / "outputs" / "models" / "best_cf_model_ncf.pkl",
-    ]
-    model_path = next((p for p in model_candidate_paths if p.exists()), None)
-
     model = None
-    if model_path is not None:
+    if model_path.exists():
         # best-effort load; if it fails we still run fallback CF.
         try:
             model = torch.load(model_path, map_location=device)
