@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: webapp_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: recipe_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recipe_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: webapp/backend/Dockerfile
+    container_name: webapp_api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:secret@db:5432/recipe_db
+      - CF_MODEL_PATH=/app/cf/outputs/models/best_cf_model_ncf.pkl
+      - CBF_MODEL_PATH=/app/cbf/outputs/models/best_cbf_model_tfidf.pkl
+    volumes:
+      - ./backend:/app/webapp/backend
+      - ../cf:/app/cf
+      - ../cbf:/app/cbf
+      - ../nutrition:/app/nutrition
+      - ../ablation:/app/ablation
+      - ../food.com:/app/food.com
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: nginx:alpine
+    container_name: webapp_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
