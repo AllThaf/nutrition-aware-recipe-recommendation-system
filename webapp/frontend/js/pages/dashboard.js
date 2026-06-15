@@ -303,7 +303,7 @@ export const DashboardPage = {
       return `
         <div class="recipe-card" data-id="${recipe.recipe_id || recipe.id}">
           <div class="recipe-card-img-placeholder">
-            <i class="ph-bold ph-image" style="font-size: 28px; color: var(--border);"></i>
+            <img src="assets/food_placeholder.png" alt="${recipe.name}" style="width: 100%; height: 100%; object-fit: cover;">
           </div>
           <div class="recipe-card-body">
             ${explanationHtml}
