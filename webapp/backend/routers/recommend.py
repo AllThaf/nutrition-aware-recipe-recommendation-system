@@ -3,7 +3,7 @@ from typing import List
 import asyncpg
 from webapp.backend.database import get_db
 from webapp.backend.schemas.recommend import RecommendRequest, RecommendResponse, RecommendItem
-from webapp.backend.pipeline.cascade import run_cascade
+from webapp.backend.pipeline.hybrid import run_weighted_hybrid
 from webapp.backend.pipeline.nutrition import score_nutrition_candidates
 
 router = APIRouter(prefix="/recommend", tags=["Recommendations"])
@@ -16,7 +16,7 @@ async def get_recommendations(
 ):
     """
     Generate recipe recommendations for a user.
-    Uses hybrid cascade logic if user is registered in NCF model.
+    Uses weighted hybrid logic if user is registered in NCF model.
     Falls back to popular, high-nutrition recipes (cold-start) if user is new.
     """
     cf_artifacts = request.app.state.cf
@@ -30,7 +30,7 @@ async def get_recommendations(
             is_warm = True
     
     if is_warm:
-        # --- HYBRID CASCADE PATHWAY ---
+        # --- HYBRID PATHWAY ---
         # Fetch user's rating history to filter candidates and compute CBF similarity
         history_rows = await db.fetch("SELECT recipe_id FROM interactions WHERE user_id = $1;", body.user_id)
         past_recipe_ids = [r["recipe_id"] for r in history_rows]
@@ -43,7 +43,7 @@ async def get_recommendations(
             
         candidate_rows = [dict(c) for c in candidates]
         
-        recommendations = run_cascade(
+        recommendations = run_weighted_hybrid(
             app_state=request.app.state,
             user_id=body.user_id,
             past_recipe_ids=past_recipe_ids,

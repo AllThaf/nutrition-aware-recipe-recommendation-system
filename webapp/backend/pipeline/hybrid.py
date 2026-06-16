@@ -4,7 +4,7 @@ from webapp.backend.pipeline.cf import score_cf_candidates
 from webapp.backend.pipeline.cbf import score_cbf_candidates
 from webapp.backend.pipeline.nutrition import score_nutrition_candidates
 
-def run_cascade(
+def run_weighted_hybrid(
     app_state,
     user_id: int,
     past_recipe_ids: List[int],
@@ -12,14 +12,16 @@ def run_cascade(
     min_nutrition_score: float = None,
     max_calories: float = None,
     top_n: int = 10,
-    nutrition_weight: float = 0.3
+    w_cf: float = 0.6,
+    w_cbf: float = 0.3,
+    w_nutr: float = 0.1
 ) -> List[Dict[str, Any]]:
     """
-    Run multi-stage cascading hybrid recommendation:
-    Stage 0: Filter candidates BEFORE ranking based on strict criteria (Calorie & Nutrition constraints)
-    Stage 1: NCF (CF) scoring -> Keep top 100 candidates
-    Stage 2: CBF Max-Pooling similarity scoring -> Keep top 30 candidates
-    Stage 3: Nutrition scoring & blending and final ranking -> Top N
+    Run weighted hybrid recommendation:
+    Stage 0: Filter candidates based on strict criteria (Calorie & Nutrition constraints)
+    Stage 1: NCF (CF) scoring -> Keep top 200 candidates to balance latency/accuracy
+    Stage 2: CBF similarity scoring & Nutrition scoring on the top 200
+    Stage 3: Blend scores with weights and final ranking -> Top N
     """
     if not candidate_rows:
         return []
@@ -47,7 +49,7 @@ def run_cascade(
             else:
                 row["calories"] = 0.0
 
-    # 2. Filter by minimum nutrition score
+    # 2. Filter by minimum nutrition score (Hard filter if requested)
     if min_nutrition_score is not None:
         nutrition_scorer = app_state.nutrition
         nutrition_results = score_nutrition_candidates(nutrition_scorer, candidate_rows)
@@ -65,7 +67,7 @@ def run_cascade(
     if not candidate_rows:
         return []
 
-    # --- STAGE 1: Collaborative Filtering ---
+    # --- STAGE 1: Collaborative Filtering (Pre-filter Top 200) ---
     # Score all remaining candidates using CF
     cf_artifacts = app_state.cf
     
@@ -85,48 +87,52 @@ def run_cascade(
     for row in candidate_rows:
         row["cf_score"] = cf_score_map.get(row["id"], 0.0)
 
-    # Sort by CF score and keep top 100 candidates
+    # Sort by CF score and keep top 200 candidates for latency optimization
     candidate_rows.sort(key=lambda x: x["cf_score"], reverse=True)
-    stage1_candidates = candidate_rows[:100]
+    top_candidates = candidate_rows[:200]
 
-    # --- STAGE 2: Content-Based Filtering ---
+    # --- STAGE 2: Content-Based Filtering & Nutrition Scoring ---
     # Score remaining candidates using TF-IDF similarity to past history
     cbf_artifacts = app_state.cbf
-    stage1_recipe_ids = [r["id"] for r in stage1_candidates]
+    top_recipe_ids = [r["id"] for r in top_candidates]
     
-    cbf_results = score_cbf_candidates(cbf_artifacts, stage1_recipe_ids, past_recipe_ids)
+    cbf_results = score_cbf_candidates(cbf_artifacts, top_recipe_ids, past_recipe_ids)
     cbf_score_map = {res["recipe_id"]: res["similarity_score"] for res in cbf_results}
 
-    for row in stage1_candidates:
-        row["similarity_score"] = cbf_score_map.get(row["id"], 0.0)
-
-    # Sort by CBF similarity and keep top 30 candidates
-    stage1_candidates.sort(key=lambda x: x["similarity_score"], reverse=True)
-    stage2_candidates = stage1_candidates[:30]
-
-    # --- STAGE 3: Nutrition Scoring & Blending ---
-    # Ensure nutrition score is populated for stage2 candidates
+    # Ensure nutrition score is populated if not done in Stage 0
     if min_nutrition_score is None:
         nutrition_scorer = app_state.nutrition
-        nutrition_results = score_nutrition_candidates(nutrition_scorer, stage2_candidates)
+        nutrition_results = score_nutrition_candidates(nutrition_scorer, top_candidates)
         nutrition_score_map = {res["recipe_id"]: res["nutrition_score"] for res in nutrition_results}
-        for row in stage2_candidates:
-            row["nutrition_score"] = nutrition_score_map.get(row["id"], 50.0)
-
+    
     final_candidates = []
-    for row in stage2_candidates:
-        sim_score = row["similarity_score"]
-        nutr_score = row["nutrition_score"]
-        norm_nutr = nutr_score / 100.0
-        row["final_score"] = (1 - nutrition_weight) * sim_score + nutrition_weight * norm_nutr
+    for row in top_candidates:
+        rid = row["id"]
         
-        # Heuristic to determine dominant signal for explanation
-        if nutr_score >= 80 and row["final_score"] - sim_score * (1 - nutrition_weight) > 0.15:
-            row["dominant_signal"] = "Nutrition"
-        elif sim_score > 0.1:
-            row["dominant_signal"] = "CBF"
+        # Populate scores
+        sim_score = cbf_score_map.get(rid, 0.0)
+        row["similarity_score"] = sim_score
+        
+        if min_nutrition_score is None:
+            row["nutrition_score"] = nutrition_score_map.get(rid, 50.0)
+            
+        nutr_score = row["nutrition_score"]
+        cf_score = row["cf_score"]
+        
+        # Normalize nutrition to [0, 1]
+        norm_nutr = nutr_score / 100.0
+        
+        # --- STAGE 3: Final Blending & Explainability ---
+        final_score = (w_cf * cf_score) + (w_cbf * sim_score) + (w_nutr * norm_nutr)
+        row["final_score"] = final_score
+        
+        # Heuristic to determine dominant signal for explanation (UI)
+        if nutr_score >= 80:
+            row["dominant_signal"] = "Healthy Choice"
+        elif sim_score >= 0.15:
+            row["dominant_signal"] = "Similar Taste"
         else:
-            row["dominant_signal"] = "CF"
+            row["dominant_signal"] = "Collaborative"
             
         final_candidates.append(row)
 
