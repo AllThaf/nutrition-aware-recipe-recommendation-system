@@ -2,7 +2,7 @@
 
 > **Capstone Project — PJK-GM053 | Pijak × IBM SkillsBuild | Tema 3**
 
-Sistem rekomendasi resep makanan berbasis pendekatan **Weighted Hybrid** yang menggabungkan *Neural Collaborative Filtering* (preferensi pengguna), *Content-Based Filtering* TF-IDF (kesamaan bahan & tag), dan *Nutrition Scoring* (aspek kesehatan) secara bersamaan.
+Sistem rekomendasi resep makanan berbasis pendekatan **Weighted Hybrid Scoring** yang menggabungkan *Neural Collaborative Filtering* (preferensi pengguna), *Content-Based Filtering* TF-IDF (kesamaan bahan & tag), dan *Nutrition Scoring* (aspek kesehatan) secara bersamaan.
 
 ---
 
@@ -160,44 +160,83 @@ nutrition-aware-recipe-recommendation-system/
 ## 🚀 Cara Menjalankan Web App (Docker)
 
 ### Prasyarat
-- Docker & Docker Compose terinstal
-- Dataset Food.com (`RAW_recipes.csv`, `RAW_interactions.csv`) tersedia
-- Model terlatih tersedia di `cf/outputs/models/` dan `cbf/outputs/models/`
+- **Docker & Docker Compose** sudah terpasang di komputer Anda.
+- **Dataset Food.com** (`RAW_recipes.csv`, `RAW_interactions.csv`) sudah diletakkan pada folder `food.com/` di root repositori ini.
 
-### 1. Konfigurasi Environment
+---
+
+### 1. 📥 Tautan & Setup Model ML Terlatih
+Model Machine Learning yang telah dilatih (*pre-trained*) harus diunduh terlebih dahulu sebelum menjalankan aplikasi karena ukurannya yang besar dan tidak di-track oleh Git.
+
+* **Tautan Unduhan Model:** [Google Drive - Model ML](https://drive.google.com/drive/folders/1vtwDDVEMU1apUU6MK0uSdMwKbkKrmk2f?usp=drive_link)
+
+Setelah diunduh, buat folder tujuan (jika belum ada) dan letakkan berkas model sesuai struktur di bawah ini:
+
+* **Modul Collaborative Filtering (CF):**
+  Letakkan berkas model berikut ke dalam direktori `cf/outputs/models/`:
+  - `best_cf_model_ncf.pkl`
+  - `idx2item.pkl`
+  - `idx2user.pkl`
+  - `item2idx.pkl`
+  - `user2idx.pkl`
+
+* **Modul Content-Based Filtering (CBF):**
+  Letakkan berkas model berikut ke dalam direktori `cbf/outputs/models/`:
+  - `best_cbf_model_tfidf.pkl`
+  - `cbf_features.pkl`
+  - `tfidf_cbf_model.pkl`
+  - *(Opsional/Alternatif model)* `jaccard_cbf_model.pkl`, `node2vec_cbf_model.pkl`, `w2v_cbf_model.pkl`
+
+---
+
+### 2. ⚙️ Konfigurasi Environment Setup
+Salin berkas `.env.example` di dalam folder `webapp` menjadi `.env`:
 
 ```bash
-# Salin file env contoh
+# Buka terminal di root proyek, lalu jalankan:
 cp webapp/.env.example webapp/.env
 ```
 
-### 2. Jalankan Docker Compose
+Berikut adalah penjelasan variabel lingkungan yang ada di dalam berkas `.env`:
+* `DATABASE_URL`: URL koneksi ke database PostgreSQL di dalam jaringan Docker (`db` adalah nama kontainer database).
+* `CF_MODEL_PATH`: Jalur file model Collaborative Filtering (`NCF`) di dalam kontainer api.
+* `CBF_MODEL_PATH`: Jalur file model Content-Based Filtering (`TF-IDF`) di dalam kontainer api.
+
+---
+
+### 3. 🐳 Jalankan Docker Compose
+Jalankan perintah berikut untuk membangun citra (*build image*) dan menjalankan seluruh service di latar belakang (*detached mode*):
 
 ```bash
 cd webapp
-docker compose up --build
+docker compose up --build -d
 ```
 
-Ini akan menjalankan 3 service sekaligus:
-| Service | Container | Port |
-|:--------|:----------|:-----|
-| PostgreSQL | `webapp_db` | `5433` |
-| FastAPI Backend | `webapp_api` | `8000` |
-| Nginx Frontend | `webapp_frontend` | `3000` |
+Ini akan menjalankan 3 service sekaligus secara otomatis:
+| Service | Container Name | Port Host | Deskripsi |
+|:--------|:----------|:-----|:---|
+| PostgreSQL | `webapp_db` | `5433` | Database relasional PostgreSQL 15 |
+| FastAPI Backend | `webapp_api` | `8000` | Server FastAPI (dokumentasi Swagger di port ini) |
+| Nginx Frontend | `webapp_frontend` | `3000` | SPA Web Dashboard berbasis HTML/JS/CSS |
 
-### 3. Seed Database
+---
 
-Jalankan setelah container aktif dan database siap:
+### 4. 💾 Seed Database
+Jalankan perintah berikut setelah seluruh kontainer aktif dan siap menerima koneksi database. Perintah ini akan menyalin skema database, membuat tabel, dan menyemai (*seed*) data resep dari dataset:
 
 ```bash
 docker exec webapp_api python webapp/backend/scripts/seed.py \
   --data-dir /app/food.com \
-  --limit-recipes 20000
+  --limit-recipes 20000 \
+  --reset
 ```
 
-> Untuk seed semua resep (~230K), gunakan `--limit-recipes 0`. Proses akan lebih lama.
+* `--limit-recipes 20000`: Membatasi jumlah data resep sebesar 20.000 (disarankan untuk demo cepat). Ubah menjadi `--limit-recipes 0` jika ingin menyemai seluruh dataset (~230K resep).
+* `--reset`: Melakukan `TRUNCATE` tabel yang ada sebelum menyemai ulang data baru.
 
-### 4. Akses Aplikasi
+---
+
+### 5. 🌐 Akses Aplikasi
 
 - **Dashboard:** [http://localhost:3000](http://localhost:3000)
 - **API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
